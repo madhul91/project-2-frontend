@@ -1,84 +1,112 @@
-import React, { useState } from "react";
-import "./App.css";
-
-const DROPDOWN_OPTIONS = [
-  { label: "Alphabets", value: "alphabets" },
-  { label: "Numbers", value: "numbers" },
-  { label: "Highest Lowercase Alphabet", value: "highest_lowercase_alphabet" }
-];
-
+import React, { useState } from 'react';
+import axios from 'axios';
+import './App.css';
 function App() {
-  const [jsonInput, setJsonInput] = useState("");
-  const [error, setError] = useState("");
-  const [responseData, setResponseData] = useState(null);
-  const [selectedOptions, setSelectedOptions] = useState([]);
+  const [jsonInput, setJsonInput] = useState('');
+  const [response, setResponse] = useState(null);
+  const [error, setError] = useState('');
+  const [selectedFields, setSelectedFields] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleJsonChange = (e) => {
+    setJsonInput(e.target.value);
+  };
+
+  const isValidJson = (input) => {
     try {
-      const parsed = JSON.parse(jsonInput);
-      if (!parsed.data) throw new Error("Missing 'data' field");
-
-      setError("");
-      const res = await fetch("https://project-2-2-pgn5.onrender.com/bfhl", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(parsed)
-      });
-
-      const data = await res.json();
-      setResponseData(data);
+      JSON.parse(input);
+      return true;
     } catch (e) {
-      setError("Invalid JSON input: " + e.message);
-      setResponseData(null);
+      return false;
     }
   };
 
-  const handleOptionChange = (e) => {
-    const { value, checked } = e.target;
-    if (checked) setSelectedOptions([...selectedOptions, value]);
-    else setSelectedOptions(selectedOptions.filter((opt) => opt !== value));
+  const handleSubmit = async () => {
+    if (!isValidJson(jsonInput)) {
+      setError('Invalid JSON format.');
+      return;
+    }
+    setError('');
+    setIsLoading(true);
+
+    try {
+      const data = JSON.parse(jsonInput);
+      const response = await axios.post('https://bajaj-dev-challenge-backend.onrender.com/bfhl', data);
+      setResponse(response.data);
+      setIsLoading(false);
+    } catch (err) {
+      setError('Error in API call.');
+      setIsLoading(false);
+    }
   };
 
-  const filteredResponse = () => {
-    if (!responseData) return {};
-    const result = {};
-    selectedOptions.forEach((opt) => {
-      result[opt] = responseData[opt];
+  const handleSelectChange = (e) => {
+    const { options } = e.target;
+    const selectedValues = Array.from(options)
+      .filter(option => option.selected)
+      .map(option => option.value);
+    setSelectedFields(selectedValues);
+  };
+
+  const renderSelectedFields = () => {
+    if (!response) return null;
+    const fieldsToDisplay = {};
+
+    selectedFields.forEach(field => {
+      fieldsToDisplay[field] = response[field];
     });
-    return result;
+
+    return (
+      <div>
+        {Object.entries(fieldsToDisplay).map(([key, value]) => (
+          <div key={key}>
+            <strong>{key}:</strong>
+            <pre>{JSON.stringify(value, null, 2)}</pre>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <div className="container">
-      <h1>ABCD123</h1>
+    <div className="App">
+      <h1>Bajaj Finserv Health Dev Challenge</h1>
+      <h1>Manan Telrandhe , 0827CS211142 , manantelrandhe210238@acropolis.in</h1>
+
       <textarea
-        placeholder='Enter JSON e.g. {"data": ["A", "4", "b"]}'
         value={jsonInput}
-        onChange={(e) => setJsonInput(e.target.value)}
-      />
-      <button onClick={handleSubmit}>Submit</button>
+        onChange={handleJsonChange}
+        placeholder="Enter JSON data here"
+        rows="10"
+        cols="50"
+      ></textarea>
 
-      {error && <p className="error">{error}</p>}
+      <button onClick={handleSubmit} disabled={isLoading}>
+        {isLoading ? 'Loading...' : 'Submit'}
+      </button>
 
-      {responseData && (
-        <>
-          <h3>Select fields to show from response:</h3>
-          <div className="dropdown">
-            {DROPDOWN_OPTIONS.map((opt) => (
-              <label key={opt.value}>
-                <input
-                  type="checkbox"
-                  value={opt.value}
-                  onChange={handleOptionChange}
-                />
-                {opt.label}
-              </label>
-            ))}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+
+      {response && (
+        <div>
+          <h2>Response:</h2>
+          <div>
+            <label>
+              Select fields to display:
+              <select multiple onChange={handleSelectChange}>
+                <option value="numbers">Numbers</option>
+                <option value="alphabets">Alphabets</option>
+                <option value="highest_lowercase_alphabet">Highest Lowercase Alphabet</option>
+                <option value="is_prime_found">Is Prime Found</option>
+                <option value="file_valid">File Valid</option>
+                <option value="file_mime_type">File MIME Type</option>
+                <option value="file_size_kb">File Size (KB)</option>
+              </select>
+            </label>
+
+            {renderSelectedFields()}
           </div>
-
-          <h3>Filtered Output:</h3>
-          <pre>{JSON.stringify(filteredResponse(), null, 2)}</pre>
-        </>
+        </div>
       )}
     </div>
   );
